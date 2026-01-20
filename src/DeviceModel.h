@@ -20,6 +20,10 @@
 #define DEVICE_MODE_OPERATION DEVICE_MODE_NODE
 #endif
 
+#if DEVICE_MODE_OPERATION != DEVICE_MODE_NODE
+#error "This repository is node-only firmware. Controller mode is not supported here."
+#endif
+
 #ifndef FEQ_DEVICE_MAC_LENGTH
 #define FEQ_DEVICE_MAC_LENGTH 6
 #endif

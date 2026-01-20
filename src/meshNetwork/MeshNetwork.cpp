@@ -37,53 +37,18 @@ static const uint8_t devicesMacAddress[MESH_NETWORK_SIZE_DEVICES_N][FEQ_DEVICE_M
 
 };
 
-static const uint8_t meshAddressBroadcast[FEQ_DEVICE_MAC_LENGTH] = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};
- 
-extern LedPatternAttributes ledPatternStrip;
 extern LedNodeUpdateAttributes ledUpdateNode;
 volatile bool pendingPingResponse = false;
 static esp_now_peer_info_t peerInfo;
 static FeqCmd receivedCommand;
 
 MeshNetwork::MeshNetwork(void){
-
-#if DEVICE_MODE_OPERATION == DEVICE_MODE_CONTROLLER
-    log_i("Mesh network instantiated as Controller.");
-#else
     log_i("Mesh network instantiated as Node.");
-#endif
-
-}
-
-void meshNetworkSendPacket(BinaryPacket* bin, uint8_t target){
-
-  log_d("Send packet to node %d , contents: ",target);
-  log_buf_d(bin->data,bin->length);
-#if DEVICE_MODE_OPERATION == DEVICE_MODE_CONTROLLER
-  if(target){
-        esp_err_t result = esp_now_send((target == 0xFF) ? meshAddressBroadcast   : 
-                                                           devicesMacAddress[target], 
-                                        bin->data, 
-                                        bin->length);
-        if (result == ESP_OK) {
-            log_i("Sending confirmed");
-        }
-        else {
-            log_e("Sending error %d",result);
-        }
-  }
-
- #endif 
-
 }
 
 static void meshNetworkTask(void *pvParameters) {
 
     while(true){
-
- #if DEVICE_MODE_OPERATION != DEVICE_MODE_CONTROLLER
 
     if(pendingPingResponse){
 
@@ -107,8 +72,6 @@ static void meshNetworkTask(void *pvParameters) {
         pendingPingResponse = false;
     }
 
-#endif
-
         vTaskDelay(pdMS_TO_TICKS(1000));
 
     }
@@ -116,7 +79,6 @@ static void meshNetworkTask(void *pvParameters) {
 
 static void receiveCallback(const uint8_t* macAddr, const uint8_t* data, int dataLen){
 
-#if DEVICE_MODE_OPERATION != DEVICE_MODE_CONTROLLER
     log_d("Data received , Length: %d",dataLen);
     log_buf_d(data,dataLen);
     BinaryPacket raw;
@@ -156,19 +118,6 @@ static void receiveCallback(const uint8_t* macAddr, const uint8_t* data, int dat
         break;
 
     }
-#else
-
-    log_d("Data received , Length: %d",dataLen);
-    log_buf_d(data,dataLen);
-    if(0x05 == dataLen && 
-       0x4E == data[0] &&
-       0x4F == data[1] && 
-       0x52 == data[3] && 
-       0x0A == data[4]){
-        log_i("Ping response from node -> %d",data[2]);
-    }
-
-#endif
 
 }
 
@@ -179,35 +128,6 @@ static void sentCallback(const uint8_t *macAddr, esp_now_send_status_t status){
 }
 
 void MeshNetwork::addPeersToList(void){
-
-#if DEVICE_MODE_OPERATION == DEVICE_MODE_CONTROLLER
-
-    WiFi.mode(WIFI_MODE_APSTA);
-    peerInfo.channel = ESP_NOW_CHANNEL_TO_USE;
-    peerInfo.encrypt = false;
-    peerInfo.ifidx = WIFI_IF_AP;
-
-    for(uint8_t node = 1; node < MESH_NETWORK_SIZE_DEVICES_N; node ++){
-        memcpy(peerInfo.peer_addr,
-               &devicesMacAddress[node][0], 
-               FEQ_DEVICE_MAC_LENGTH);
-        if (esp_now_add_peer(&peerInfo) != ESP_OK){
-            log_e("Error adding ESP-NOW peer %d.",node);
-            return;
-        }
-    }
-
-    log_i("ESP-NOW Added %d Peers succesfully.",MESH_NETWORK_SIZE_DEVICES_N-1);
-
-    memcpy(peerInfo.peer_addr,
-           meshAddressBroadcast, 
-           FEQ_DEVICE_MAC_LENGTH);
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        log_e("Error adding ESP-NOW broadcast peer");
-        return;
-    }
-    log_i("Adding broadcast address as a peer as well.");
-#else
 
     peerInfo.channel = ESP_NOW_CHANNEL_TO_USE;
     peerInfo.encrypt = false;
@@ -224,23 +144,19 @@ void MeshNetwork::addPeersToList(void){
 
     log_i("ESP-NOW Added Master to peer list. ");
 
-#endif
-
 }
 
 void MeshNetwork::initEspNow(void){
 
-#if DEVICE_MODE_OPERATION == DEVICE_MODE_NODE
-       WiFi.mode(WIFI_MODE_STA);
-       esp_wifi_set_promiscuous(true);
-       esp_wifi_set_channel(ESP_NOW_CHANNEL_TO_USE, WIFI_SECOND_CHAN_NONE);
-       esp_wifi_set_promiscuous(false);
-       esp_err_t errCode = ESP_FAIL;
-       errCode = esp_wifi_set_protocol(WIFI_IF_STA,WIFI_PROTOCOL_LR);
-       if(errCode){
+    WiFi.mode(WIFI_MODE_STA);
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(ESP_NOW_CHANNEL_TO_USE, WIFI_SECOND_CHAN_NONE);
+    esp_wifi_set_promiscuous(false);
+    esp_err_t errCode = ESP_FAIL;
+    errCode = esp_wifi_set_protocol(WIFI_IF_STA,WIFI_PROTOCOL_LR);
+    if(errCode){
         log_e("Failed setting Wi-FI long range ");
-      }
-#endif
+    }
 
     if(ESP_OK == esp_now_init()){
         log_i("ESP-NOW Initialized succesfully.");

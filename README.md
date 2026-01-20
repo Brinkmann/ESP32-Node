@@ -2,7 +2,7 @@
 
 ## Description
 
-This repository houses the **Node** firmware for the Football Eye Q project. 
+This repository houses the **Node** firmware for the Football Eye Q project. It is **node-only** firmware and will not build as a Hub/Controller.
 
 These Node devices act as the receivers in the system. They connect via a low-latency **ESP-NOW** mesh network to the main **Hub Controller**. Their primary function is to receive commands from the Hub and drive the attached RGB LED strips accordingly.
 
@@ -15,6 +15,7 @@ These Node devices act as the receivers in the system. They connect via a low-la
 - [IDE_Installation](#IDE_Installation)
 - [Libraries_Installation](#Libraries_installation)
 - [Usage](#usage)
+- [Node Identity in the Mesh](#node-identity-in-the-mesh)
 
 ## Features
 
@@ -56,4 +57,13 @@ Open the Sketch tab and the Library Manager. Install the following library:
     - Once flashed, open the **Serial Monitor** (Baud Rate 115200).
     - Reset the device.
     - Copy the **MAC Address** displayed in the logs (e.g., `34:85:18:6D:37:B0`).
-    - **Crucial Step:** You must add this MAC address to the `devicesMacAddress` list in the `src/meshNetwork/MeshNetwork.cpp` file in **BOTH** this Node repo and the Hub repo.
+    - **Crucial Step:** You must add this MAC address to the `devicesMacAddress` list in `src/meshNetwork/MeshNetwork.cpp` in **this** Node repo (and the Hub repo for pairing).
+
+## Node Identity in the Mesh
+
+Each Node determines its identity by comparing its own MAC address against the ordered list in `devicesMacAddress` (in `src/meshNetwork/MeshNetwork.cpp`). The **index** that matches becomes the node's `meshId`. If no MAC matches, the firmware logs an error and resets. This is how the Node "knows" which device it is in the mesh.
+
+To assign a new Node ID:
+1. Flash the firmware and read the device MAC from Serial Monitor.
+2. Add that MAC to `devicesMacAddress` at the correct index for the strip/label mapping you want.
+3. Reflash the Node so it can match its MAC and set the `meshId`.
